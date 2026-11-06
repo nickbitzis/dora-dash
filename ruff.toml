@@ -1,0 +1,6 @@
+# Lint settings for the stdlib Python export script and its tests.
+line-length = 140
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]

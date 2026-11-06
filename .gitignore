@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+*.log
+__pycache__/
+*.pyc
+.ruff_cache/
+.venv/
+.env
+# exports from real repositories stay local
+events.csv

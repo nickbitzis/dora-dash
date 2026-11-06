@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DORA Dash</title>
+  <meta name="description" content="Compute the four DORA delivery metrics and rework rate from raw commit, pull request, deployment, and incident events.">
+  <link rel="stylesheet" href="src/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>DORA Dash</h1>
+      <p class="sub">Deployment frequency, lead time, change failure rate, time to restore, and rework rate, computed from raw delivery events in your browser.</p>
+    </div>
+    <div class="actions">
+      <button type="button" id="download">Download sample CSV</button>
+      <button type="button" id="share" class="ghost">Copy share link</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="panel databar" aria-label="Data source">
+      <div class="source">
+        <strong id="source-title">Sample company</strong>
+        <span id="source-sub" class="muted"></span>
+      </div>
+      <div class="source-controls">
+        <label class="inline">Seed<input type="number" id="seed" min="0" step="1"></label>
+        <button type="button" id="reroll" class="ghost">New sample</button>
+        <label class="file-btn ghost-btn">Upload CSV or JSON<input type="file" id="file" accept=".csv,.json,text/csv,application/json"></label>
+        <button type="button" id="paste-toggle" class="ghost" aria-expanded="false" aria-controls="paste-box">Paste data</button>
+      </div>
+      <div id="paste-box" class="paste" hidden>
+        <textarea id="paste" rows="6" spellcheck="false" placeholder="type,id,team,service,time,pr,review_at,merged_at,env,status,kind,commits,resolved_at,deployment"></textarea>
+        <div class="actions"><button type="button" id="paste-load">Load pasted data</button><a href="#schema" class="small-link">See the schema</a></div>
+      </div>
+      <ul id="errors" class="warnings"></ul>
+    </section>
+
+    <nav class="filters" aria-label="Team filter">
+      <span class="filter-label">Team</span>
+      <div id="teams" class="tabs" role="tablist"></div>
+    </nav>
+
+    <section id="kpis" class="kpis" aria-label="Headline metrics"></section>
+
+    <section class="panel">
+      <h2>What the data says</h2>
+      <ul id="insights" class="insights"></ul>
+    </section>
+
+    <section class="panel">
+      <div class="chart-head">
+        <h2>Weekly trends</h2>
+        <ul id="team-legend" class="legend"></ul>
+      </div>
+      <div id="multiples" class="multiples"></div>
+      <p class="hint">Each chart has its own y-axis. Weeks start on Monday (UTC). Lead time is the median for changes that reached production that week. Failure, restore, and rework use the trailing 4 weeks so a single bad deploy in a quiet week does not read as 100%. Hover a chart for weekly values.</p>
+    </section>
+
+    <div class="two-col">
+      <section class="panel">
+        <div class="chart-head">
+          <h2>Where lead time goes</h2>
+          <ul id="stage-legend" class="legend"></ul>
+        </div>
+        <div class="chart-wrap">
+          <svg id="breakdown" role="img" aria-label="Average lead time per change by stage, for each team"></svg>
+        </div>
+        <p class="hint">Average time per change in each stage. The four stages add up to the average lead time, shown at the end of each bar.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Team comparison</h2>
+        <div class="table-scroll">
+          <table class="items">
+            <thead><tr><th>Team</th><th class="num">Deploys</th><th class="num">Lead time (median / p90)</th><th class="num">Failure rate</th><th class="num">Restore</th><th class="num">Rework</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <p class="hint">Bands are approximate, adapted from the DORA State of DevOps reports. Click a row to filter.</p>
+      </section>
+    </div>
+
+    <section class="panel" id="schema">
+      <h2>Input schema</h2>
+      <p class="hint">One CSV with a header row, or a JSON array of objects with the same keys. One row per event. Times are ISO 8601. Leave columns blank when they do not apply.</p>
+      <div class="table-scroll">
+        <table class="items schema">
+          <thead><tr><th>type</th><th>Columns used</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>commit</code></td><td><code>id</code> (sha), <code>team</code>, <code>service</code>, <code>time</code>, <code>pr</code></td><td>A commit and the pull request it belongs to. Commits with no PR count as their own change.</td></tr>
+            <tr><td><code>pr</code></td><td><code>id</code>, <code>team</code>, <code>time</code> (opened), <code>review_at</code> (first review), <code>merged_at</code></td><td>Splits lead time into coding, review wait, review, and merge to deploy.</td></tr>
+            <tr><td><code>deployment</code></td><td><code>id</code>, <code>team</code>, <code>service</code>, <code>time</code>, <code>env</code>, <code>status</code>, <code>kind</code>, <code>commits</code>, <code>deployment</code></td><td><code>env</code>: only <code>production</code> counts. <code>status</code>: success, failed, or rolled_back. <code>kind</code>: normal, hotfix, or rollback. <code>commits</code>: shas separated by semicolons. For a hotfix or rollback, <code>deployment</code> names the deploy it fixes.</td></tr>
+            <tr><td><code>incident</code></td><td><code>id</code>, <code>team</code>, <code>time</code> (start), <code>resolved_at</code>, <code>deployment</code></td><td>Time to restore uses every resolved incident. Only incidents that name a deployment count toward failure rate.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">A deployment counts as failed if an incident names it, its status is failed or rolled_back, or a hotfix or rollback names it. To build this file from GitHub, see <code>scripts/export_github.md</code> in the repository.</p>
+    </section>
+  </main>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+  <footer class="foot">Runs entirely in your browser. Uploaded data never leaves the page. The team filter and sample seed are stored in the URL.</footer>
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>

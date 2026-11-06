@@ -1,0 +1,11 @@
+{
+  "name": "dora-dash",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DORA delivery metrics from raw commit, PR, deployment, and incident events.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  }
+}
