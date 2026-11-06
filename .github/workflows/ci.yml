@@ -1,0 +1,34 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Metric tests (node --test)
+        run: node --test
+
+      - name: Sample CSV is up to date
+        run: |
+          node scripts/make_sample.mjs
+          git diff --exit-code data/sample-events.csv
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Lint the export script
+        run: |
+          uvx ruff check .
+          uvx ruff format --check .
+
+      - name: Export script tests (stdlib unittest, no network)
+        run: uv run --python 3.12 --no-project python -m unittest discover -s tests -p "test_*.py"
